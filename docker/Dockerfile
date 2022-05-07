@@ -70,7 +70,7 @@ RUN make install
 # RUN pip install meshcat
 
 # change timezone (this is very important otherwise many ROS topic time will be strange)
-ENV TZ=America/New_York
+ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # add OSQP 
