@@ -4,6 +4,8 @@ FROM osrf/ros:melodic-desktop-full
 LABEL maintainer="shuoyang@andrew.cmu.edu"
 ENV REFRESH_AT 2022-03-22
 
+RUN sh -c 'echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -sc) main restricted universe multiverse\n# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -sc) main restricted universe multiverse\ndeb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -sc)-updates main restricted universe multiverse\n# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -sc)-updates main restricted universe multiverse\ndeb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -sc)-backports main restricted universe multiverse\n# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -sc)-backports main restricted universe multiverse\ndeb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -sc)-security main restricted universe multiverse\n# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -sc)-security main restricted universe multiverse" > /etc/apt/sources.list'
+
 # nvidia-container-runtime
 ENV NVIDIA_VISIBLE_DEVICES \
     ${NVIDIA_VISIBLE_DEVICES:-all}
@@ -42,9 +44,10 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.6 1
 RUN curl https://bootstrap.pypa.io/pip/3.6/get-pip.py -o get-pip.py
 RUN python get-pip.py
 RUN rm get-pip.py
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 # change timezone (this is very important otherwise many ROS topic time will be strange)
-ENV TZ=America/New_York
+ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # make unitree workspace
