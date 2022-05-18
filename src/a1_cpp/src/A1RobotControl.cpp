@@ -145,6 +145,294 @@ A1RobotControl::A1RobotControl(ros::NodeHandle &_nh) : A1RobotControl() {
     pub_terrain_angle = nh.advertise<std_msgs::Float64>("a1_debug/terrain_angle", 100);
 }
 
+
+void A1RobotControl::static_walking_ctrl(A1CtrlStates &state, double t, double dt)
+{
+    double counter;
+    state.counter_static_gait += state.counter_static_gait_speed;
+    counter = state.counter_static_gait = std::fmod(state.counter_static_gait, state.counter_per_static_gait);
+
+    if (t < 14.0) // start to walk after 2 seconds
+    {
+        state.gait_sequence = GAIT_SEQUENCE::STAND;
+        counter = state.counter_static_gait = 0.0;
+    }
+    else if (counter < state.counter_per_static_move_com)
+        {state.gait_sequence = GAIT_SEQUENCE::MOVE_COM_TO_LEFT; }
+    else if (counter < state.counter_per_static_move_com + state.counter_per_static_swing)
+        {state.gait_sequence = GAIT_SEQUENCE::RH; }
+    else if (counter < state.counter_per_static_move_com + state.counter_per_static_swing * 2)
+        {state.gait_sequence = GAIT_SEQUENCE::RF; }
+    else if (counter < state.counter_per_static_move_com + state.counter_per_static_swing * 2 + state.counter_per_static_move_com)
+        {state.gait_sequence = GAIT_SEQUENCE::MOVE_COM_TO_RIGHT; }
+    else if (counter < state.counter_per_static_move_com + state.counter_per_static_swing * 3 + state.counter_per_static_move_com)
+        {state.gait_sequence = GAIT_SEQUENCE::LH; }
+    else 
+        {state.gait_sequence = GAIT_SEQUENCE::LF; }
+
+    Eigen::Vector2d res;
+    Eigen::Vector2d x_0, y_0;
+    Eigen::Vector2d x_f, y_f;
+    double t_now, T_f;
+    
+    // finite state machine
+    
+    switch (state.gait_sequence)
+    {
+    case GAIT_SEQUENCE::STAND:
+        // step 1: planed contact states
+        // step 2(if move CoM): determine (root_pos_d, root_lin_vel_d) <- (starting_pos_CoM, starting_vel_CoM, target_pos_CoM, target_vel_CoM)
+        // step 2(if swing): determine foot_pos_target_rel <- foot_pos_start
+        
+        for (int i = 0; i < NUM_LEG; ++i)
+            state.plan_contacts[i] = true;
+
+        state.starting_pos_CoM.segment<2>(0) = state.root_pos.segment<2>(0);
+        state.starting_vel_CoM.segment<2>(0) = state.root_lin_vel_d.segment<2>(0);
+        break;
+    case GAIT_SEQUENCE::MOVE_COM_TO_LEFT:
+        // step 1: 
+        for (int i = 0; i < NUM_LEG; ++i)
+            state.plan_contacts[i] = true;
+
+        // step 2:
+        state.target_pos_CoM.segment<2>(0) = (state.foot_pos_world.block<2, 1>(0, 0) + state.foot_pos_world.block<2, 1>(0, 1) + state.foot_pos_world.block<2, 1>(0, 2)) / 3;
+        state.target_pos_CoM(1) += 0.015;
+        state.target_vel_CoM.segment<2>(0) = Eigen::VectorXd::Zero(2);
+
+        x_0(0) = state.starting_pos_CoM(0);
+        x_0(1) = state.starting_vel_CoM(0);
+        x_f(0) = state.target_pos_CoM(0);
+        x_f(1) = state.target_vel_CoM(0);
+
+        t_now = counter * state.control_dt;
+        T_f = state.counter_per_static_move_com * state.control_dt;
+        res = cubicSplinesUtils.cubic_splines_curve(t_now, T_f, x_0, x_f);
+        state.root_pos_d(0) = res(0);
+        state.root_lin_vel_d(0) = res(1);
+
+        y_0(0) = state.starting_pos_CoM(1);
+        y_0(1) = state.starting_vel_CoM(1);
+        y_f(0) = state.target_pos_CoM(1);
+        y_f(1) = state.target_vel_CoM(1);
+        res = cubicSplinesUtils.cubic_splines_curve(t_now, T_f, y_0, y_f);
+        state.root_pos_d(1) = res(0);
+        state.root_lin_vel_d(1) = res(1);
+
+        state.counter_static_relative = 0.0;
+
+        break;
+    case GAIT_SEQUENCE::RH:
+        
+        // step 1:
+        state.plan_contacts[0] = true;
+        state.plan_contacts[1] = true;
+        state.plan_contacts[2] = true;
+        state.plan_contacts[3] = false;
+        
+        // step 2:
+        state.counter_static_relative = counter - state.counter_per_static_move_com;
+        
+
+        break;
+    case GAIT_SEQUENCE::RF:
+
+        // step 1:
+        state.plan_contacts[0] = true;
+        state.plan_contacts[1] = false;
+        state.plan_contacts[2] = true;
+        state.plan_contacts[3] = true;
+
+        // step 2:
+        state.counter_static_relative = counter - state.counter_per_static_move_com - state.counter_per_static_swing;
+
+        // initialization for next state
+        state.starting_pos_CoM.segment<2>(0) = state.root_pos.segment<2>(0);
+        state.starting_vel_CoM.segment<2>(0) = state.root_lin_vel_d.segment<2>(0);
+        break;
+    case GAIT_SEQUENCE::MOVE_COM_TO_RIGHT:
+
+        // step 1: 
+        for (int i = 0; i < NUM_LEG; ++i)
+            state.plan_contacts[i] = true;
+
+        // step 2:
+        state.target_pos_CoM.segment<2>(0) = (state.foot_pos_world.block<2, 1>(0, 0) + state.foot_pos_world.block<2, 1>(0, 1) + state.foot_pos_world.block<2, 1>(0, 3)) / 3;
+        state.target_pos_CoM(1) -= 0.015;
+        state.target_vel_CoM.segment<2>(0) = Eigen::VectorXd::Zero(2);
+
+        x_0(0) = state.starting_pos_CoM(0);
+        x_0(1) = state.starting_vel_CoM(0);
+        x_f(0) = state.target_pos_CoM(0);
+        x_f(1) = state.target_vel_CoM(0);
+
+        t_now = (counter - state.counter_per_static_move_com - state.counter_per_static_swing * 2) * state.control_dt;
+        T_f = state.counter_per_static_move_com * state.control_dt;
+        res = cubicSplinesUtils.cubic_splines_curve(t_now, T_f, x_0, x_f);
+        state.root_pos_d(0) = res(0);
+        state.root_lin_vel_d(0) = res(1);
+
+        y_0(0) = state.starting_pos_CoM(1);
+        y_0(1) = state.starting_vel_CoM(1);
+        y_f(0) = state.target_pos_CoM(1);
+        y_f(1) = state.target_vel_CoM(1);
+        res = cubicSplinesUtils.cubic_splines_curve(t_now, T_f, y_0, y_f);
+        state.root_pos_d(1) = res(0);
+        state.root_lin_vel_d(1) = res(1);
+
+        state.counter_static_relative = 0.0;
+
+        break;
+    case GAIT_SEQUENCE::LH:
+        // step 1:
+        state.plan_contacts[0] = true;
+        state.plan_contacts[1] = true;
+        state.plan_contacts[2] = false;
+        state.plan_contacts[3] = true;
+         
+        
+        // step 2:
+        state.counter_static_relative = counter - state.counter_per_static_move_com * 2 - state.counter_per_static_swing * 2;
+
+        break;
+    case GAIT_SEQUENCE::LF:
+        // step 1:
+        state.plan_contacts[0] = false;
+        state.plan_contacts[1] = true;
+        state.plan_contacts[2] = true;
+        state.plan_contacts[3] = true;
+        
+        // step 2:
+        state.counter_static_relative = counter - state.counter_per_static_move_com * 2 - state.counter_per_static_swing * 3;
+
+        state.starting_pos_CoM.segment<2>(0) = state.root_pos.segment<2>(0);
+        state.starting_vel_CoM.segment<2>(0) = state.root_lin_vel_d.segment<2>(0);
+        break;
+    default:
+        break;
+    }
+
+}
+
+void A1RobotControl::select_footholds(A1CtrlStates &state, double t, double dt) {
+
+    double delta_x, delta_y;
+    delta_x = 0.05;
+    delta_y = 0.0;
+
+    if (delta_x < -FOOT_DELTA_X_LIMIT) {
+        delta_x = -FOOT_DELTA_X_LIMIT;
+    }
+    if (delta_x > FOOT_DELTA_X_LIMIT) {
+        delta_x = FOOT_DELTA_X_LIMIT;
+    }
+    if (delta_y < -FOOT_DELTA_Y_LIMIT) {
+        delta_y = -FOOT_DELTA_Y_LIMIT;
+    }
+    if (delta_y > FOOT_DELTA_Y_LIMIT) {
+        delta_y = FOOT_DELTA_Y_LIMIT;
+    }    
+
+    state.foot_pos_target_rel = state.default_foot_pos;
+    for (int i = 0; i < NUM_LEG; ++i)
+    {
+        state.foot_pos_target_rel(0, i) += delta_x;
+        state.foot_pos_target_rel(1, i) += delta_y;
+
+        state.foot_pos_target_abs.block<3, 1>(0, i) = state.root_rot_mat * state.foot_pos_target_rel.block<3, 1>(0, i);
+        state.foot_pos_target_world.block<3, 1>(0, i) = state.foot_pos_target_abs.block<3, 1>(0, i) + state.root_pos;
+    }
+    
+}
+
+void A1RobotControl::generate_swing_to_dest(A1CtrlStates &state, double t, double dt) {
+    state.joint_torques.setZero();
+
+    // get current foot pos and target foot pose
+    Eigen::Matrix<double, 3, NUM_LEG> foot_pos_cur;
+    Eigen::Matrix<double, 3, NUM_LEG> foot_vel_cur;
+    Eigen::Matrix<float, 1, NUM_LEG> spline_time;
+    spline_time.setZero();
+    Eigen::Matrix<double, 3, NUM_LEG> foot_pos_target;
+    foot_pos_target.setZero();
+    Eigen::Matrix<double, 3, NUM_LEG> foot_vel_target;
+    foot_vel_target.setZero();
+    Eigen::Matrix<double, 3, NUM_LEG> foot_pos_error;
+    Eigen::Matrix<double, 3, NUM_LEG> foot_vel_error;
+
+    // the foot force of swing foot and stance foot, both are in robot frame
+    Eigen::Matrix<double, 3, NUM_LEG> foot_forces_kin;
+    Eigen::Matrix<double, 3, NUM_LEG> foot_forces_grf;
+
+    for (int i = 0; i < NUM_LEG; ++i) {
+        foot_pos_cur.block<3, 1>(0, i) = state.root_rot_mat_z.transpose() * state.foot_pos_abs.block<3, 1>(0, i);
+
+        // from foot_pos_cur to foot_pos_final computes an intermediate point using BezierUtils
+        if (state.plan_contacts[i] == true) {
+            // stance foot
+            spline_time(i) = 0.0;
+            // in this case the foot should be stance
+            // keep refreshing foot_pos_start in stance mode
+            state.foot_pos_start.block<3, 1>(0, i) = foot_pos_cur.block<3, 1>(0, i);
+
+        } else {
+
+            // in this case the foot should be swing
+            spline_time(i) = float(state.counter_static_relative) / float(state.counter_per_static_swing);
+            
+        }
+
+        foot_pos_target.block<3, 1>(0, i) = bezierUtils[i].get_foot_pos_curve(spline_time(i),
+                                                                              state.foot_pos_start.block<3, 1>(0, i),
+                                                                              state.foot_pos_target_rel.block<3, 1>(0, i),
+                                                                              0.0);
+
+        
+
+        foot_vel_cur.block<3, 1>(0, i) = (foot_pos_cur.block<3, 1>(0, i) - state.foot_pos_rel_last_time.block<3, 1>(0, i)) / dt;
+        state.foot_pos_rel_last_time.block<3, 1>(0, i) = foot_pos_cur.block<3, 1>(0, i);
+
+        foot_vel_target.block<3, 1>(0, i) = (foot_pos_target.block<3, 1>(0, i) - state.foot_pos_target_last_time.block<3, 1>(0, i)) / dt;
+        state.foot_pos_target_last_time.block<3, 1>(0, i) = foot_pos_target.block<3, 1>(0, i);
+
+        foot_pos_error.block<3, 1>(0, i) = foot_pos_target.block<3, 1>(0, i) - foot_pos_cur.block<3, 1>(0, i);
+        foot_vel_error.block<3, 1>(0, i) = foot_vel_target.block<3, 1>(0, i) - foot_vel_cur.block<3, 1>(0, i);
+        foot_forces_kin.block<3, 1>(0, i) = foot_pos_error.block<3, 1>(0, i).cwiseProduct(state.kp_foot.block<3, 1>(0, i)) +
+                                            foot_vel_error.block<3, 1>(0, i).cwiseProduct(state.kd_foot.block<3, 1>(0, i));
+    }
+    state.foot_pos_cur = foot_pos_cur;
+
+    // detect early contact
+    bool last_contacts[NUM_LEG];
+
+    for (int i = 0; i < NUM_LEG; ++i) {
+        if (state.counter_static_relative <= state.counter_per_static_swing * 0.5) {
+            state.early_contacts[i] = false;
+        }
+        else if(!state.plan_contacts[i] && (state.foot_force(i) > FOOT_FORCE_LOW)) {
+            state.early_contacts[i] = true;
+        }
+
+        // actual contact
+        last_contacts[i] = state.contacts[i];
+        state.contacts[i] = state.plan_contacts[i] || state.early_contacts[i];
+
+        // record recent contact position if the foot is in touch with the ground
+        if (state.contacts[i]) {
+//            state.foot_pos_recent_contact.block<3, 1>(0, i) = state.root_rot_mat.transpose() * (state.foot_pos_world.block<3, 1>(0, i));
+//            state.foot_pos_recent_contact.block<3, 1>(0, i) = state.foot_pos_abs.block<3, 1>(0, i);
+            state.foot_pos_recent_contact.block<3, 1>(0, i)
+                    << recent_contact_x_filter[i].CalculateAverage(state.foot_pos_abs(0, i)),
+                    recent_contact_y_filter[i].CalculateAverage(state.foot_pos_abs(1, i)),
+                    recent_contact_z_filter[i].CalculateAverage(state.foot_pos_abs(2, i));
+        }
+    }
+
+    // std::cout << "foot_pos_recent_contact z: " << state.foot_pos_recent_contact.block<1, 4>(2, 0) << std::endl;
+
+    state.foot_forces_kin = foot_forces_kin;
+}
+
 void A1RobotControl::update_plan(A1CtrlStates &state, double dt) {
     state.counter += 1;
     if (!state.movement_mode) {
@@ -281,12 +569,44 @@ void A1RobotControl::generate_swing_legs_ctrl(A1CtrlStates &state, double dt) {
         }
     }
 
-    std::cout << "foot_pos_recent_contact z: " << state.foot_pos_recent_contact.block<1, 4>(2, 0) << std::endl;
+    // std::cout << "foot_pos_recent_contact z: " << state.foot_pos_recent_contact.block<1, 4>(2, 0) << std::endl;
 
     state.foot_forces_kin = foot_forces_kin;
 }
 
 void A1RobotControl::compute_joint_torques(A1CtrlStates &state) {
+    Eigen::Matrix<double, NUM_DOF, 1> joint_torques;
+    joint_torques.setZero();
+    mpc_init_counter++;
+    // for the first 10 ticks, just return zero torques.
+    if (mpc_init_counter < 10) {
+        state.joint_torques = joint_torques;
+    } else {
+        // for each leg, if it is a swing leg (contact[i] is false), use foot_force_kin to get joint_torque
+        // for each leg, if it is a stance leg (contact[i] is true), use foot_forces_grf to get joint_torque
+        for (int i = 0; i < NUM_LEG; ++i) {
+            Eigen::Matrix3d jac = state.j_foot.block<3, 3>(3 * i, 3 * i);
+            if (state.contacts[i]) {
+                // stance leg
+                joint_torques.segment<3>(i * 3) = jac.transpose() * -state.foot_forces_grf.block<3, 1>(0, i);
+            } else {
+                // swing leg
+                Eigen::Vector3d force_tgt = state.km_foot.cwiseProduct(state.foot_forces_kin.block<3, 1>(0, i));
+                joint_torques.segment<3>(i * 3) = jac.lu().solve(force_tgt);   // jac * tau = F
+            }
+        }
+        // gravity compensation
+        joint_torques += state.torques_gravity;
+
+        // prevent nan
+        for (int i = 0; i < 12; ++i) {
+            if (!isnan(joint_torques[i]))
+                state.joint_torques[i] = joint_torques[i];
+        }
+    }
+}
+
+void A1RobotControl::compute_joint_torques_kin(A1CtrlStates &state) {
     Eigen::Matrix<double, NUM_DOF, 1> joint_torques;
     joint_torques.setZero();
     mpc_init_counter++;
@@ -365,8 +685,8 @@ Eigen::Matrix<double, 3, NUM_LEG> A1RobotControl::compute_grf(A1CtrlStates &stat
         std_msgs::Float64 terrain_angle_msg;
         terrain_angle_msg.data = terrain_angle * (180 / 3.1415926);
         pub_terrain_angle.publish(terrain_angle_msg); // publish in deg
-        std::cout << "desire pitch in deg: " << state.root_euler_d[1] * (180 / 3.1415926) << std::endl;
-        std::cout << "terrain angle: " << terrain_angle << std::endl;
+        // std::cout << "desire pitch in deg: " << state.root_euler_d[1] * (180 / 3.1415926) << std::endl;
+        // std::cout << "terrain angle: " << terrain_angle << std::endl;
 
         // save calculated terrain pitch angle
         // TODO: limit terrain pitch angle to -30 to 30? 
@@ -375,6 +695,7 @@ Eigen::Matrix<double, 3, NUM_LEG> A1RobotControl::compute_grf(A1CtrlStates &stat
     if (state.stance_leg_control_type == 0) { // 0: QP
         // desired acc in world frame
         root_acc.setZero();
+
         root_acc.block<3, 1>(0, 0) = state.kp_linear.cwiseProduct(state.root_pos_d - state.root_pos);
 
         root_acc.block<3, 1>(0, 0) += state.root_rot_mat * state.kd_linear.cwiseProduct(
@@ -386,9 +707,9 @@ Eigen::Matrix<double, 3, NUM_LEG> A1RobotControl::compute_grf(A1CtrlStates &stat
                 state.root_ang_vel_d - state.root_rot_mat.transpose() * state.root_ang_vel);
 
         // add gravity
-        root_acc(2) += state.robot_mass * 9.8;
+        root_acc(2) += state.robot_mass * 9.81;
 
-        // Create inverse inertia matrix
+        // Create inverse inertia matrix: A
         Eigen::Matrix<double, 6, DIM_GRF> inertia_inv;
         for (int i = 0; i < NUM_LEG; ++i) {
             inertia_inv.block<3, 3>(0, i * 3).setIdentity();
@@ -432,7 +753,7 @@ Eigen::Matrix<double, 3, NUM_LEG> A1RobotControl::compute_grf(A1CtrlStates &stat
         std::chrono::duration<double, std::milli> ms_double_1 = t2 - t1;
         std::chrono::duration<double, std::milli> ms_double_2 = t3 - t2;
 
-        std::cout << "qp solver init time: " << ms_double_1.count() << "ms; solve time: " << ms_double_2.count() << "ms" << std::endl;
+        // std::cout << "qp solver init time: " << ms_double_1.count() << "ms; solve time: " << ms_double_2.count() << "ms" << std::endl;
 
         Eigen::VectorXd QPSolution = solver.getSolution(); //12x1
         for (int i = 0; i < NUM_LEG; ++i) {

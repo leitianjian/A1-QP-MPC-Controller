@@ -105,3 +105,18 @@ double BezierUtils::bezier_curve(double t, const std::vector<double> &P) {
     }
     return y;
 }
+
+Eigen::Vector2d CubicSplinesUtils::cubic_splines_curve(double t, double T, const Eigen::Vector2d &src, const Eigen::Vector2d &dest) {
+    
+    Eigen::Vector2d res;
+
+    double a_0 = src(0);
+    double a_1 = src(1);
+    double a_2 = 3 / pow(T, 2) * (dest(0) - src(0)) - 2 / T * src(1) - T * dest(1);
+    double a_3 = -2 / pow(T, 3) * (dest(0) - src(0)) + 1 / pow(T, 2) * (src(1) + dest(1));
+
+    res(0) = a_0 + a_1 * t + a_2 * pow(t, 2) + a_3 * pow(t, 3);
+    res(1) = a_1 + 2 * a_2 * t + 3 * a_3 * pow(t, 2);
+
+    return res;
+}

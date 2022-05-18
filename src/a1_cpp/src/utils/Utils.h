@@ -42,4 +42,16 @@ private:
     float bezier_degree;
 };
 
+class CubicSplinesUtils {
+    // TODO: allow degree change? may not be necessary, we can stick to degree 4
+public:
+    CubicSplinesUtils () {
+        
+    }
+ 
+public:
+    Eigen::Vector2d cubic_splines_curve(double t, double T, const Eigen::Vector2d &src, const Eigen::Vector2d &dest);
+
+};
+
 #endif //A1_CPP_UTILS_H

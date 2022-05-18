@@ -146,6 +146,23 @@ bool HardwareA1ROS::main_update(double t, double dt) {
         a1_ctrl_states.movement_mode = 0;
     }
 
+    if(t < 8) 
+    {
+        a1_ctrl_states.movement_mode = 0;
+    }
+    else if(t < 12.0)
+    {
+        a1_ctrl_states.movement_mode = 1;
+    }
+    else if(t < 14.0)
+    {
+        a1_ctrl_states.movement_mode = 0;
+    }
+    else
+    {
+        a1_ctrl_states.movement_mode = 1;
+    }
+
     // in walking mode, do position locking if no root_lin_vel_d, otherwise do not lock position
     if (a1_ctrl_states.movement_mode == 1) {
         if (a1_ctrl_states.root_lin_vel_d.segment<2>(0).norm() > 0.05) {
@@ -158,8 +175,22 @@ bool HardwareA1ROS::main_update(double t, double dt) {
         }
     }
 
-    _root_control.update_plan(a1_ctrl_states, dt);
-    _root_control.generate_swing_legs_ctrl(a1_ctrl_states, dt);
+    if(t < 14.0)
+    {
+        _root_control.update_plan(a1_ctrl_states, dt);
+        _root_control.generate_swing_legs_ctrl(a1_ctrl_states, dt);
+    }
+    else
+    {
+        _root_control.static_walking_ctrl(a1_ctrl_states, t, dt);
+        _root_control.select_footholds(a1_ctrl_states, t, dt);
+        _root_control.generate_swing_to_dest(a1_ctrl_states, t, dt);
+    }
+    
+
+    // _root_control.static_walking_ctrl(a1_ctrl_states, t, dt);
+    // _root_control.select_footholds(a1_ctrl_states, t, dt);
+    // _root_control.generate_swing_to_dest(a1_ctrl_states, t, dt);
 
     nav_msgs::Odometry estimate_odom;
     estimate_odom.pose.pose.position.x = a1_ctrl_states.estimated_root_pos(0);

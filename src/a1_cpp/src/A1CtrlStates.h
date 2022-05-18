@@ -10,6 +10,17 @@
 
 #include "A1Params.h"
 
+enum class GAIT_SEQUENCE{
+    STAND,
+    MOVE_COM_TO_LEFT,
+    RH,
+    RF,
+    LH,
+    LF,
+    MOVE_COM_TO_RIGHT
+};
+
+
 class A1CtrlStates {
 public:
     // this init function sets all variables to that used in orbit.issac.a1 controller
@@ -18,6 +29,18 @@ public:
     }
 
     void reset() {
+
+        /* Static gait varibles initialization */
+        gait_sequence = GAIT_SEQUENCE::STAND;
+        counter_static_gait = 0;
+        counter_static_gait_speed = 0.5;
+        counter_per_static_move_com = 480.0;
+        counter_per_static_swing = 220.0;
+        counter_per_static_gait = counter_per_static_move_com * 2 + counter_per_static_swing * 4;
+        
+
+        
+        /* --- */
         stance_leg_control_type = 1;
         movement_mode = 0;
         counter_per_gait = 120 * 2;
@@ -440,6 +463,24 @@ public:
 
     // hardware
     int power_level;
+
+    // static walk varaibles
+    GAIT_SEQUENCE gait_sequence;
+
+    // w.r.t the world frame
+    Eigen::Vector3d starting_pos_CoM;
+    Eigen::Vector3d starting_vel_CoM;
+    Eigen::Vector3d target_pos_CoM;
+    Eigen::Vector3d target_vel_CoM;
+    
+    double counter_static_gait;
+    double counter_per_static_gait;
+    double counter_per_static_move_com;
+    double counter_per_static_swing;
+    double counter_static_gait_speed;
+    double counter_static_relative;
+
+
 };
 
 #endif //A1_CPP_A1CTRLSTATES_H

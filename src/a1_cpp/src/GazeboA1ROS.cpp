@@ -119,6 +119,12 @@ bool GazeboA1ROS::main_update(double t, double dt) {
         return false;
     }
 
+    // std::cout << "FL_rel = " << a1_ctrl_states.foot_pos_rel(2,0) 
+    //         << "FR_rel = " << a1_ctrl_states.foot_pos_rel(2,1)
+    //         << "RL_rel = " << a1_ctrl_states.foot_pos_rel(2,2) 
+    //         << "RR_rel = " << a1_ctrl_states.foot_pos_rel(2,3) 
+    //         << std::endl;
+
     // process joy cmd data to get desired height, velocity, yaw, etc
     // save the result into a1_ctrl_states
     joy_cmd_body_height += joy_cmd_velz * dt;
@@ -148,6 +154,7 @@ bool GazeboA1ROS::main_update(double t, double dt) {
 
     // root_lin_vel_d is in robot frame
     a1_ctrl_states.root_lin_vel_d[0] = joy_cmd_velx;
+    // a1_ctrl_states.root_lin_vel_d[0] = 0.3;
     a1_ctrl_states.root_lin_vel_d[1] = joy_cmd_vely;
     a1_ctrl_states.root_lin_vel_d[2] = joy_cmd_velz;
 
@@ -175,6 +182,8 @@ bool GazeboA1ROS::main_update(double t, double dt) {
         a1_ctrl_states.movement_mode = 0;
     }
 
+    a1_ctrl_states.movement_mode = 0;
+
     // in walking mode, do position locking if no root_lin_vel_d, otherwise do not lock position
     if (a1_ctrl_states.movement_mode == 1) {
         if (a1_ctrl_states.root_lin_vel_d.segment<2>(0).norm() > 0.05) {
@@ -187,8 +196,12 @@ bool GazeboA1ROS::main_update(double t, double dt) {
         }
     }
 
-    _root_control.update_plan(a1_ctrl_states, dt);
-    _root_control.generate_swing_legs_ctrl(a1_ctrl_states, dt);
+    // _root_control.update_plan(a1_ctrl_states, dt);
+    // _root_control.generate_swing_legs_ctrl(a1_ctrl_states, dt);
+    _root_control.static_walking_ctrl(a1_ctrl_states, t, dt);
+    _root_control.select_footholds(a1_ctrl_states, t, dt);
+    _root_control.generate_swing_to_dest(a1_ctrl_states, t, dt);
+    
 
     // state estimation
     if (!a1_estimate.is_inited()) {

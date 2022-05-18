@@ -10,23 +10,19 @@ a1_robot_mass: 15.0
 
 a1_default_foot_pos_FL_x: 0.17
 a1_default_foot_pos_FL_y: 0.15
-# a1_default_foot_pos_FL_z: -0.33
-a1_default_foot_pos_FL_z: -0.25
+a1_default_foot_pos_FL_z: -0.33
 
 a1_default_foot_pos_FR_x: 0.17
 a1_default_foot_pos_FR_y: -0.15
-# a1_default_foot_pos_FR_z: -0.33
-a1_default_foot_pos_FR_z: -0.25
+a1_default_foot_pos_FR_z: -0.33
 
 a1_default_foot_pos_RL_x: -0.17
 a1_default_foot_pos_RL_y: 0.15
-# a1_default_foot_pos_RL_z: -0.33
-a1_default_foot_pos_RL_z: -0.25
+a1_default_foot_pos_RL_z: -0.33
 
 a1_default_foot_pos_RR_x: -0.17
 a1_default_foot_pos_RR_y: -0.15
-# a1_default_foot_pos_RR_z: -0.33
-a1_default_foot_pos_RR_z: -0.25
+a1_default_foot_pos_RR_z: -0.33
 
 a1_gait_counter_speed_FL: 1.0
 a1_gait_counter_speed_FR: 1.0
@@ -58,9 +54,7 @@ a1_km_foot_z: 0.1
 
 a1_kp_linear_x: 400.0
 a1_kp_linear_y: 400.0
-#a1_kp_linear_z: 1500.0
-a1_kp_linear_z: 1000.0
-
+a1_kp_linear_z: 1500.0
 
 a1_kd_linear_x: 300.0
 a1_kd_linear_y: 200.0
