@@ -80,7 +80,7 @@ void A1BasicEKF::update_estimation(A1CtrlStates& state, double dt) {
         for (int i = 0; i < NUM_LEG; ++i) estimated_contacts[i] = 1.0;
     } else {  // walk
         for (int i = 0; i < NUM_LEG; ++i) {
-            estimated_contacts[i] = std::min(std::max((state.foot_force(i)) / (100.0 - 0.0), 0.0), 1.0);
+            estimated_contacts[i] = std::min(std::max((state.foot_force(i)) / (75.0 - 0.0), 0.0), 1.0);
 //        estimated_contacts[i] = 1.0/(1.0+std::exp(-(state.foot_force(i)-100)));
         }
     }

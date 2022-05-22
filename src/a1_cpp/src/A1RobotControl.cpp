@@ -146,6 +146,65 @@ A1RobotControl::A1RobotControl(ros::NodeHandle &_nh) : A1RobotControl() {
 }
 
 
+Eigen::Vector2d A1RobotControl::move_COM_pos(A1CtrlStates &state,bool movestate)
+{  
+    Eigen::Vector3d LH,LF,RH,RF;
+    Eigen::Vector2d COM_pos_world;
+    double k1,k2,b1,b2;
+    double x_inter,y_inter,x_COM,y_COM,region_center_x,region_center_y;
+
+    if (movestate)   //move COM left
+    {   
+        LH = state.foot_pos_world.block<3, 1>(0, 2);
+        LF = state.foot_pos_world.block<3, 1>(0, 0);
+        RF = state.foot_pos_world.block<3, 1>(0, 1);
+        RH = state.foot_pos_target_world.block<3, 1>(0, 3);
+    }
+    else      //move COM right
+    {
+        LH = state.foot_pos_target_world.block<3, 1>(0, 2);
+        LF = state.foot_pos_world.block<3, 1>(0, 0);
+        RF = state.foot_pos_world.block<3, 1>(0, 1);
+        RH = state.foot_pos_world.block<3, 1>(0, 3);
+    }
+    for (size_t i = 0; i < 2; i++)
+    {
+        std::cout<<"LH:"<<LH(i)<<","<<"LF:"<<LF(i)<<","<<"RH:"<<RH(i)<<","<<"RF:"<<RF(i)<<std::endl;
+    }
+    std::cout<<"------------------------------------------"<<std::endl;
+    
+    //calculate the intersec point
+    k1 = (RF(1) - LH(1))/(RF(0) - LH(0));
+    k2 = (LF(1) - RH(1))/(LF(0) - RH(0));
+    b1 = LH(1) - LH(0)*k1;
+    b2 = LF(1) - LF(0)*k2;
+    x_inter = (b2-b1)/(k1-k2);
+    y_inter = k1*x_inter+b1;
+
+    double delx,dely;
+    if (movestate)   //move COM left
+    {   
+        region_center_x = (LF(0)+LH(0)+x_inter)/3;
+        region_center_y = (LF(1)+LH(1)+y_inter)/3;
+    }
+    else      //move COM right
+    {
+        region_center_x = (RF(0)+RH(0)+x_inter)/3;
+        region_center_y = (RF(1)+RH(1)+y_inter)/3;
+    }
+    std::cout<<"center x:"<<region_center_x<<","<<"center y:"<<region_center_y<<std::endl;
+    delx = region_center_x - x_inter;
+    dely = region_center_y - y_inter;
+    // x_COM = x_inter + delx/2;
+    // y_COM = y_inter + dely/2;
+    x_COM = x_inter + delx;
+    y_COM = y_inter + dely;
+
+    COM_pos_world << x_COM,y_COM;
+
+    return COM_pos_world;
+}
+
 void A1RobotControl::static_walking_ctrl(A1CtrlStates &state, double t, double dt)
 {
     double counter;
@@ -170,13 +229,14 @@ void A1RobotControl::static_walking_ctrl(A1CtrlStates &state, double t, double d
     else 
         {state.gait_sequence = GAIT_SEQUENCE::LF; }
 
+//
     Eigen::Vector2d res;
     Eigen::Vector2d x_0, y_0;
     Eigen::Vector2d x_f, y_f;
     double t_now, T_f;
-    
+    Eigen::Vector2d COM_pos;
+
     // finite state machine
-    
     switch (state.gait_sequence)
     {
     case GAIT_SEQUENCE::STAND:
@@ -190,14 +250,20 @@ void A1RobotControl::static_walking_ctrl(A1CtrlStates &state, double t, double d
         state.starting_pos_CoM.segment<2>(0) = state.root_pos.segment<2>(0);
         state.starting_vel_CoM.segment<2>(0) = state.root_lin_vel_d.segment<2>(0);
         break;
+
     case GAIT_SEQUENCE::MOVE_COM_TO_LEFT:
         // step 1: 
         for (int i = 0; i < NUM_LEG; ++i)
-            state.plan_contacts[i] = true;
+            state.plan_contacts[i] = true;    //all legs stands to adjust the COM
 
         // step 2:
-        state.target_pos_CoM.segment<2>(0) = (state.foot_pos_world.block<2, 1>(0, 0) + state.foot_pos_world.block<2, 1>(0, 1) + state.foot_pos_world.block<2, 1>(0, 2)) / 3;
-        state.target_pos_CoM(1) += 0.015;
+        
+        COM_pos = move_COM_pos(state, 1);
+        std::cout<< "move left:"<<  COM_pos(0)<<" ,"<<COM_pos(1)<<std::endl;
+        //state.target_pos_CoM.segment<2>(0) = (state.foot_pos_world.block<2, 1>(0, 0) + state.foot_pos_world.block<2, 1>(0, 1) + state.foot_pos_world.block<2, 1>(0, 2)) / 3;
+        //state.target_pos_CoM(1) += 0.015;
+        state.target_pos_CoM(0) = COM_pos(0);
+        state.target_pos_CoM(1) = COM_pos(1);
         state.target_vel_CoM.segment<2>(0) = Eigen::VectorXd::Zero(2);
 
         x_0(0) = state.starting_pos_CoM(0);
@@ -257,8 +323,13 @@ void A1RobotControl::static_walking_ctrl(A1CtrlStates &state, double t, double d
             state.plan_contacts[i] = true;
 
         // step 2:
-        state.target_pos_CoM.segment<2>(0) = (state.foot_pos_world.block<2, 1>(0, 0) + state.foot_pos_world.block<2, 1>(0, 1) + state.foot_pos_world.block<2, 1>(0, 3)) / 3;
-        state.target_pos_CoM(1) -= 0.015;
+        COM_pos = move_COM_pos(state, 0);
+        std::cout<< "move left:"<<  COM_pos(0)<<" ,"<<COM_pos(1)<<std::endl;
+        //state.target_pos_CoM.segment<2>(0) = (state.foot_pos_world.block<2, 1>(0, 0) + state.foot_pos_world.block<2, 1>(0, 1) + state.foot_pos_world.block<2, 1>(0, 3)) / 3;
+        //state.target_pos_CoM(1) -= 0.015;
+        state.target_pos_CoM(0) = COM_pos(0);
+        state.target_pos_CoM(1) = COM_pos(1);
+
         state.target_vel_CoM.segment<2>(0) = Eigen::VectorXd::Zero(2);
 
         x_0(0) = state.starting_pos_CoM(0);
@@ -314,12 +385,11 @@ void A1RobotControl::static_walking_ctrl(A1CtrlStates &state, double t, double d
 
 }
 
-void A1RobotControl::select_footholds(A1CtrlStates &state, double t, double dt) {
+void A1RobotControl::generate_footholds_ref(A1CtrlStates &state, double t, double dt) {
 
     double delta_x, delta_y;
-    delta_x = 0.05;
+    delta_x = 0.06;
     delta_y = 0.0;
-
     if (delta_x < -FOOT_DELTA_X_LIMIT) {
         delta_x = -FOOT_DELTA_X_LIMIT;
     }
@@ -333,11 +403,48 @@ void A1RobotControl::select_footholds(A1CtrlStates &state, double t, double dt) 
         delta_y = FOOT_DELTA_Y_LIMIT;
     }    
 
+    state.footholds_rel = state.default_foot_pos;
+    for (int i = 0; i < NUM_LEG; ++i)
+    {
+        state.footholds_rel(0, i) += delta_x;
+        state.footholds_rel(1, i) += delta_y;
+
+    }
+
+}
+
+
+void A1RobotControl::select_footholds(A1CtrlStates &state, double t, double dt) {
+
+    generate_footholds_ref(state, t, dt);
+    Eigen::Matrix<double,3,NUM_LEG> footholds_rel;
+    footholds_rel = state.footholds_rel;
+
+    // double delta_x, delta_y;
+    // delta_x = 0.05;
+    // delta_y = 0.0;
+
+    // if (delta_x < -FOOT_DELTA_X_LIMIT) {
+    //     delta_x = -FOOT_DELTA_X_LIMIT;
+    // }
+    // if (delta_x > FOOT_DELTA_X_LIMIT) {
+    //     delta_x = FOOT_DELTA_X_LIMIT;
+    // }
+    // if (delta_y < -FOOT_DELTA_Y_LIMIT) {
+    //     delta_y = -FOOT_DELTA_Y_LIMIT;
+    // }
+    // if (delta_y > FOOT_DELTA_Y_LIMIT) {
+    //     delta_y = FOOT_DELTA_Y_LIMIT;
+    // }    
+
     state.foot_pos_target_rel = state.default_foot_pos;
     for (int i = 0; i < NUM_LEG; ++i)
     {
-        state.foot_pos_target_rel(0, i) += delta_x;
-        state.foot_pos_target_rel(1, i) += delta_y;
+        // state.foot_pos_target_rel(0, i) += delta_x;
+        // state.foot_pos_target_rel(1, i) += delta_y;
+
+        state.foot_pos_target_rel(0, i) = footholds_rel(0,i);
+        state.foot_pos_target_rel(1, i) = footholds_rel(1,i);
 
         state.foot_pos_target_abs.block<3, 1>(0, i) = state.root_rot_mat * state.foot_pos_target_rel.block<3, 1>(0, i);
         state.foot_pos_target_world.block<3, 1>(0, i) = state.foot_pos_target_abs.block<3, 1>(0, i) + state.root_pos;

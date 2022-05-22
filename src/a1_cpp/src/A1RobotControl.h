@@ -41,6 +41,11 @@ public:
 
     void compute_joint_torques(A1CtrlStates &state);
 
+    Eigen::Vector2d move_COM_pos(A1CtrlStates &state,bool movestate);  
+    // movestate 1:right foot swing 0:left foot swing
+
+    void generate_footholds_ref(A1CtrlStates &state, double t, double dt);
+
     void static_walking_ctrl(A1CtrlStates &state, double t, double dt);
 
     void select_footholds(A1CtrlStates &state, double t, double dt);

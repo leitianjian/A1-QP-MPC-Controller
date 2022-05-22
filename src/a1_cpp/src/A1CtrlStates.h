@@ -33,15 +33,15 @@ public:
         /* Static gait varibles initialization */
         gait_sequence = GAIT_SEQUENCE::STAND;
         counter_static_gait = 0;
-        counter_static_gait_speed = 0.5;
+        counter_static_gait_speed = 0.8;
         counter_per_static_move_com = 480.0;
-        counter_per_static_swing = 220.0;
+        counter_per_static_swing = 200.0;
         counter_per_static_gait = counter_per_static_move_com * 2 + counter_per_static_swing * 4;
         
 
         
         /* --- */
-        stance_leg_control_type = 1;
+        stance_leg_control_type = 0;
         movement_mode = 0;
         counter_per_gait = 120 * 2;
         counter_per_swing = 120;
@@ -115,6 +115,7 @@ public:
         foot_vel_abs.setZero();
         foot_vel_rel.setZero();
         j_foot.setIdentity();
+        footholds_rel.setZero();
 
         for (int i = 0; i < NUM_LEG; ++i) {
             contacts[i] = false;
@@ -480,6 +481,10 @@ public:
     double counter_static_gait_speed;
     double counter_static_relative;
 
+
+    // footholds pos w.r.t the robot frame
+    Eigen::Matrix<double, 3, NUM_LEG> footholds_rel;
+    
 
 };
 

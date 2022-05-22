@@ -182,7 +182,7 @@ bool GazeboA1ROS::main_update(double t, double dt) {
         a1_ctrl_states.movement_mode = 0;
     }
 
-    a1_ctrl_states.movement_mode = 0;
+    a1_ctrl_states.movement_mode = 1;
 
     // in walking mode, do position locking if no root_lin_vel_d, otherwise do not lock position
     if (a1_ctrl_states.movement_mode == 1) {
