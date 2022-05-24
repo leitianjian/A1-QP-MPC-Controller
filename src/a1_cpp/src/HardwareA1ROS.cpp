@@ -30,6 +30,7 @@ HardwareA1ROS::HardwareA1ROS(ros::NodeHandle &_nh)
     pub_estimated_pose = nh.advertise<nav_msgs::Odometry>("/hardware_a1/estimation_body_pose", 100);
 
     sub_joy_msg = nh.subscribe("/joy", 1000, &HardwareA1ROS::joy_callback, this);
+    meihuazhuangpos = nh.subscribe("/meihuazhuang_pos", 5, &HardwareA1ROS::meihuazhuang_callback, this);
 
     udp.InitCmdData(cmd);
     udp_init_send();
@@ -257,6 +258,24 @@ void HardwareA1ROS::joy_callback(const sensor_msgs::Joy::ConstPtr &joy_msg) {
         std::cout << "You have pressed the exit button!!!!" << std::endl;
         joy_cmd_exit = true;
     }
+}
+
+
+void HardwareA1ROS::meihuazhuang_callback(const std_msgs::Float64MultiArray::ConstPtr&meihuazhuangpos_msg) {
+   
+   if(meihuazhuangpos_msg->data.size() > 1)
+   {
+    a1_ctrl_states.num_of_target = meihuazhuangpos_msg->data.size() / 3;
+    std::cout << a1_ctrl_states.num_of_target << "targets found !\n";
+    for(int i = 0; i < a1_ctrl_states.num_of_target; i++)
+    {
+        std::cout << "No." << i ;
+        std::cout << "x = "<<meihuazhuangpos_msg->data[0 + i*3] << ", y = " << meihuazhuangpos_msg->data[1 + i*3] << ", z = "  << meihuazhuangpos_msg->data[2 + i*3] << std::endl;
+    }
+        
+   }
+   
+
 }
 
 void HardwareA1ROS::udp_init_send() {

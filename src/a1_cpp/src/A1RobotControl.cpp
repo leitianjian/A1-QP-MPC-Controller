@@ -167,11 +167,11 @@ Eigen::Vector2d A1RobotControl::move_COM_pos(A1CtrlStates &state,bool movestate)
         RF = state.foot_pos_world.block<3, 1>(0, 1);
         RH = state.foot_pos_world.block<3, 1>(0, 3);
     }
-    for (size_t i = 0; i < 2; i++)
-    {
-        std::cout<<"LH:"<<LH(i)<<","<<"LF:"<<LF(i)<<","<<"RH:"<<RH(i)<<","<<"RF:"<<RF(i)<<std::endl;
-    }
-    std::cout<<"------------------------------------------"<<std::endl;
+    // for (size_t i = 0; i < 2; i++)
+    // {
+    //     std::cout<<"LH:"<<LH(i)<<","<<"LF:"<<LF(i)<<","<<"RH:"<<RH(i)<<","<<"RF:"<<RF(i)<<std::endl;
+    // }
+    // std::cout<<"------------------------------------------"<<std::endl;
     
     //calculate the intersec point
     k1 = (RF(1) - LH(1))/(RF(0) - LH(0));
@@ -192,7 +192,7 @@ Eigen::Vector2d A1RobotControl::move_COM_pos(A1CtrlStates &state,bool movestate)
         region_center_x = (RF(0)+RH(0)+x_inter)/3;
         region_center_y = (RF(1)+RH(1)+y_inter)/3;
     }
-    std::cout<<"center x:"<<region_center_x<<","<<"center y:"<<region_center_y<<std::endl;
+    // std::cout<<"center x:"<<region_center_x<<","<<"center y:"<<region_center_y<<std::endl;
     delx = region_center_x - x_inter;
     dely = region_center_y - y_inter;
     // x_COM = x_inter + delx/2;
@@ -259,7 +259,7 @@ void A1RobotControl::static_walking_ctrl(A1CtrlStates &state, double t, double d
         // step 2:
         
         COM_pos = move_COM_pos(state, 1);
-        std::cout<< "move left:"<<  COM_pos(0)<<" ,"<<COM_pos(1)<<std::endl;
+        // std::cout<< "move left:"<<  COM_pos(0)<<" ,"<<COM_pos(1)<<std::endl;
         //state.target_pos_CoM.segment<2>(0) = (state.foot_pos_world.block<2, 1>(0, 0) + state.foot_pos_world.block<2, 1>(0, 1) + state.foot_pos_world.block<2, 1>(0, 2)) / 3;
         //state.target_pos_CoM(1) += 0.015;
         state.target_pos_CoM(0) = COM_pos(0);
@@ -324,7 +324,7 @@ void A1RobotControl::static_walking_ctrl(A1CtrlStates &state, double t, double d
 
         // step 2:
         COM_pos = move_COM_pos(state, 0);
-        std::cout<< "move left:"<<  COM_pos(0)<<" ,"<<COM_pos(1)<<std::endl;
+        // std::cout<< "move left:"<<  COM_pos(0)<<" ,"<<COM_pos(1)<<std::endl;
         //state.target_pos_CoM.segment<2>(0) = (state.foot_pos_world.block<2, 1>(0, 0) + state.foot_pos_world.block<2, 1>(0, 1) + state.foot_pos_world.block<2, 1>(0, 3)) / 3;
         //state.target_pos_CoM(1) -= 0.015;
         state.target_pos_CoM(0) = COM_pos(0);

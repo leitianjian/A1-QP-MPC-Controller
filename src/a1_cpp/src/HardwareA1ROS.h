@@ -27,6 +27,7 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/Vector3Stamped.h>
+#include <std_msgs/Float64MultiArray.h>   //vision msg
 
 // control parameters
 #include "A1Params.h"
@@ -35,6 +36,7 @@
 #include "A1BasicEKF.h"
 #include "legKinematics/A1Kinematics.h"
 #include "utils/Utils.h"
+
 
 // a1 hardware
 #include "unitree_legged_sdk/unitree_legged_sdk.h"
@@ -60,6 +62,8 @@ public:
 
     void joy_callback(const sensor_msgs::Joy::ConstPtr &joy_msg);
 
+    void meihuazhuang_callback(const std_msgs::Float64MultiArray::ConstPtr&meihuazhuangpos_msg);
+
 private:
     ros::NodeHandle nh;
     ros::Publisher pub_joint_cmd;
@@ -68,6 +72,7 @@ private:
     sensor_msgs::JointState joint_foot_msg;
     sensor_msgs::Imu imu_msg;
     ros::Subscriber sub_joy_msg;
+    ros::Subscriber meihuazhuangpos;
 
     // debug estimated position
     ros::Publisher pub_estimated_pose;

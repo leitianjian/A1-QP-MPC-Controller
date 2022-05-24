@@ -38,6 +38,7 @@ public:
         counter_per_static_swing = 200.0;
         counter_per_static_gait = counter_per_static_move_com * 2 + counter_per_static_swing * 4;
         
+        
 
         
         /* --- */
@@ -484,6 +485,8 @@ public:
 
     // footholds pos w.r.t the robot frame
     Eigen::Matrix<double, 3, NUM_LEG> footholds_rel;
+    int num_of_target;
+    
     
 
 };
