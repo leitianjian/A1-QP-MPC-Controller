@@ -111,8 +111,8 @@ int main(int argc, char **argv) {
 
             // compute desired ground forces
             bool main_update_running = a1->main_update(elapsed.toSec(), dt.toSec());
-            // bool send_cmd_running = a1->send_cmd();
-            bool send_cmd_running = true;
+            bool send_cmd_running = a1->send_cmd();
+            // bool send_cmd_running = true;
 
             // auto t4 = std::chrono::high_resolution_clock::now();
             // std::chrono::duration<double, std::milli> ms_double = t4 - t3;

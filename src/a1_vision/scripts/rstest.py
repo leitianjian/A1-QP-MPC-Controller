@@ -67,8 +67,15 @@ def get_aligned_images():
 
     # 返回相机内参、深度参数、彩色图、深度图、齐帧中的depth帧
     return intr, depth_intrin, color_image, depth_image, aligned_depth_frame
-
-
+def generate_matrix(theta):
+    theta = theta/180*np.pi
+    R_1 = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]])
+    R = np.array([[np.cos(theta), 0, np.sin(theta)], [0, 1, 0], [-np.sin(theta), 0, np.cos(theta)]])@ R_1
+    p = (np.array([0.29,0,0.055])+np.array([0.0325*np.cos(theta),-0.0075,-0.0325*np.sin(theta)])).T
+    # print('R',R)
+    # print('p:',p)
+    return R,p
+    
 class YoloV5:
     def __init__(self, yolov5_yaml_path='config/yolov5s.yaml'):
         '''初始化'''
@@ -196,7 +203,8 @@ class YoloV5:
             cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
             cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3,
                         [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
-
+    
+        
 
 if __name__ == '__main__':
 
@@ -209,6 +217,14 @@ if __name__ == '__main__':
     print("[INFO] 完成YoloV5模型加载")
     # pub = rospy.Publisher("/test_camera", Float64MultiArray, queue_size=10)
     # rospy.init_node('talker', anonymous=True)
+    # qx = 1*np.pi / 180  
+    # qy = 1*np.pi / 180
+    # qz = 1*np.pi / 180
+    # rx = np.array([[1, 0, 0], [0, np.cos(qx), -np.sin(qx)], [0, np.sin(qx), np.cos(qx)]])
+    # ry = np.array([[np.cos(qy), 0, np.sin(qy)], [0, 1, 0], [-np.sin(qy), 0, np.cos(qy)]])
+    # rz = np.array([[np.cos(qz), -np.sin(qz), 0], [np.sin(qz), np.cos(qz), 0], [0, 0, 1]])
+    # r = np.matmul(rx, np.matmul(ry, rz) ) #rotation matrix
+    # T = np.array(r)
 
     try:
         while True:
@@ -240,20 +256,28 @@ if __name__ == '__main__':
                     ux = int((xyxy_list[i][0]+xyxy_list[i][2])/2)  # 计算像素坐标系的x
                     uy = int((xyxy_list[i][1]+xyxy_list[i][3])/2)  # 计算像素坐标系的y
                     dis = aligned_depth_frame.get_distance(ux, uy)
-                    camera_xyz = rs.rs2_deproject_pixel_to_point(
+                    #camera_xyz = rs.rs2_deproject_pixel_to_point(
+                    #    depth_intrin, (ux, uy), dis)  # 计算相机坐标系的xyz
+                    #camera_xyz = np.matmul(r, camera_xyz)
+                    camera_pos = rs.rs2_deproject_pixel_to_point(
                         depth_intrin, (ux, uy), dis)  # 计算相机坐标系的xyz
+                    camera_pos = np.round(np.array(camera_pos), 3)  # 转成3位小数
+                    print('camera:',camera_pos)
+                    R,p = generate_matrix(90)
+                    # print('-----',np.matmul(R,camera_pos))
+                    camera_xyz = R @ camera_pos + p
                     camera_xyz = np.round(np.array(camera_xyz), 3)  # 转成3位小数
                     camera_xyz = camera_xyz.tolist()
-                    #cv2.circle(canvas, (ux,uy), 4, (255, 255, 255), 5)#标出中心点
-                    #cv2.putText(canvas, str(camera_xyz), (ux+20, uy+10), 0, 1,
+                    print('COM:',camera_xyz)
+                    # cv2.circle(canvas, (ux,uy), 4, (255, 255, 255), 5)#标出中心点
+                    # cv2.putText(canvas, str(camera_pos), (ux+20, uy+10), 0, 1,
                     #             [225, 255, 255], thickness=2, lineType=cv2.LINE_AA)#标出坐标
-                    print(camera_xyz)
                     camera_xyz_list.append(camera_xyz)
             camera_flatten_list = list(chain.from_iterable(camera_xyz_list))
 
-            print(camera_flatten_list)
+            # print(camera_flatten_list)
             meihuazhuangpos = Float64MultiArray(data = camera_flatten_list)
-            print(meihuazhuangpos.data)
+            # print(meihuazhuangpos.data)
             pospub.publish(meihuazhuangpos)
 
             # 添加fps显示

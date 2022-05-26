@@ -388,7 +388,7 @@ void A1RobotControl::static_walking_ctrl(A1CtrlStates &state, double t, double d
 void A1RobotControl::generate_footholds_ref(A1CtrlStates &state, double t, double dt) {
 
     double delta_x, delta_y;
-    delta_x = 0.06;
+    delta_x = 0.1;
     delta_y = 0.0;
     if (delta_x < -FOOT_DELTA_X_LIMIT) {
         delta_x = -FOOT_DELTA_X_LIMIT;
