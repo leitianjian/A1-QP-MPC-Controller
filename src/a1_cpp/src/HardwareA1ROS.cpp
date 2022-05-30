@@ -147,7 +147,7 @@ bool HardwareA1ROS::main_update(double t, double dt) {
         a1_ctrl_states.movement_mode = 0;
     }
 
-    if(t < 8) 
+    if(t < 7) 
     {
         a1_ctrl_states.movement_mode = 0;
     }
@@ -162,6 +162,7 @@ bool HardwareA1ROS::main_update(double t, double dt) {
     else
     {
         a1_ctrl_states.movement_mode = 1;
+        // std::cout << "ready mode" ;
     }
 
     // in walking mode, do position locking if no root_lin_vel_d, otherwise do not lock position
@@ -184,6 +185,7 @@ bool HardwareA1ROS::main_update(double t, double dt) {
     // else
     // {
         _root_control.select_footholds(a1_ctrl_states, t, dt);
+
         _root_control.static_walking_ctrl(a1_ctrl_states, t, dt);
         _root_control.generate_swing_to_dest(a1_ctrl_states, t, dt);
         
@@ -262,19 +264,108 @@ void HardwareA1ROS::joy_callback(const sensor_msgs::Joy::ConstPtr &joy_msg) {
 
 
 void HardwareA1ROS::meihuazhuang_callback(const std_msgs::Float64MultiArray::ConstPtr&meihuazhuangpos_msg) {
+    
    
    if(meihuazhuangpos_msg->data.size() > 1)
    {
-    a1_ctrl_states.num_of_target = meihuazhuangpos_msg->data.size() / 3;
-    std::cout << a1_ctrl_states.num_of_target << "targets found !\n";
+    a1_ctrl_states.num_of_target = meihuazhuangpos_msg->data.size() / 4;
+    // std::cout << a1_ctrl_states.num_of_target << "targets found !\n";
     for(int i = 0; i < a1_ctrl_states.num_of_target; i++)
     {
-        std::cout << "No." << i ;
-        std::cout << "x = "<<meihuazhuangpos_msg->data[0 + i*3] << ", y = " << meihuazhuangpos_msg->data[1 + i*3] << ", z = "  << meihuazhuangpos_msg->data[2 + i*3] << std::endl;
+        // std::cout << "No." << i ;
+        double x_ori = meihuazhuangpos_msg->data[0 + i*4];
+        double y_ori = meihuazhuangpos_msg->data[1 + i*4];
+        double z_ori = meihuazhuangpos_msg->data[2 + i*4];
+        double quality_in = meihuazhuangpos_msg->data[3 + i*4];
+        Eigen::Vector3d p_origin;
+        p_origin << x_ori, y_ori, z_ori;
+        // std::cout << "x = "<< x_ori << ", y = " << y_ori << ", z = "  << z_ori << ", quality" << quality_in << std::endl;
+
+        Eigen::Vector3d temp = a1_ctrl_states.root_rot_mat * p_origin;
+        Eigen::Vector3d final = temp + a1_ctrl_states.root_pos;
+        if (a1_ctrl_states.record.size() == 0) {
+            a1_ctrl_states.record.push_back(FrontPoint(final, quality_in));
+        } else {
+            auto it = a1_ctrl_states.record.begin();
+            for (; it != a1_ctrl_states.record.end(); ++ it) {
+                Eigen::Vector3d &pos_recorded = it->pos;
+                double dx = final[0] - pos_recorded[0];
+                double dy = final[1] - pos_recorded[1];
+                double dz = final[2] - pos_recorded[2];
+                // std::cout << "dx=" << dx << " dy=" << dy << " dz=" << dz << std::endl;
+                // std::cout << "length " << dx * dx + dy * dy + dz * dz << std::endl;
+                // std::cout << "update accroding to quality " << quality_in << " " << it->quality << std::endl;
+                if (dx * dx + dy * dy < 0.14 * 0.14) {
+                    if (it->quality < quality_in) {
+                        // update node value 
+                        it->setPos(final);
+                        // pos_recorded(0) = final(0);
+                        // pos_recorded(1) = final(1);
+                        // pos_recorded(2) = final(2);
+                        it->setQuality(quality_in);
+                    }
+                    // std::cout << "after update " << it->quality << std::endl;
+                    break;
+                }
+
+                if (pos_recorded[0] > final[0]) {
+                    a1_ctrl_states.record.insert(it, FrontPoint(final, quality_in));
+                    break; 
+                }
+            }
+            if (it == a1_ctrl_states.record.end() && a1_ctrl_states.record.back().pos(0) < final[0]) {
+                a1_ctrl_states.record.push_back(FrontPoint(final, quality_in));
+            }
+            
+            // for (int i = 0; i < a1_ctrl_states.record.size(); ++ i) {
+            //     Eigen::Vector3d pos_recorded = a1_ctrl_states.record[i];
+            //     double dx = final[0] - pos_recorded[0];
+            //     double dy = final[1] - pos_recorded[1];
+            //     double dz = final[2] - pos_recorded[2];
+            //     std::cout << "length " << dx * dx + dy * dy + dz * dz << std::endl;
+            //     if (dx * dx + dy * dy + dz * dz < 0.01) {
+            //         break;
+            //     }
+
+            //     if (pos_recorded[0] > final[0]) {
+            //         a1_ctrl_states.record.insert(a1_ctrl_states.record.begin(), i, final);
+            //         break; 
+            //     }
+                
+            //     if (i == a1_ctrl_states.record.size() - 1) {
+            //         if (pos_recorded[0] < final[0]) {
+            //             a1_ctrl_states.record.push_back(final);
+            //             break; 
+            //         }
+            //     }
+            // }
+        }
+        // std::cout << "x = "<< a1_ctrl_states.record[0] << ", y = " << y_ori << ", z = "  << z_ori << std::endl;
     }
-        
+
+    // for (auto it = a1_ctrl_states.record.begin(); it != a1_ctrl_states.record.end(); ++ it) {
+    //     Eigen::Vector3d pos_recorded = it->pos;
+    //     std::cout << "[" << pos_recorded[0] << ", " << pos_recorded[1] << ", " << pos_recorded[2] << ", " << it->quality << std::endl;
+    // }
+    // std::cout << "-----------------------------" << std::endl;
    }
-   
+
+   // delete node
+   double rf_min = a1_ctrl_states.foot_pos_world(0, 3);
+   if (rf_min > a1_ctrl_states.foot_pos_world(0, 2)) {
+       rf_min = a1_ctrl_states.foot_pos_world(0, 2);
+   }
+    int flag = 0;
+    for (auto it = a1_ctrl_states.record.begin(); it != a1_ctrl_states.record.end(); ++ it) {
+        if ((*it).pos(0) > rf_min) {
+            break;
+        }
+        flag ++;
+    }
+    for (int i = 0; i < flag; ++ i) {
+        a1_ctrl_states.record.pop_front();
+        std::cout << "delete one node" << i << std::endl;
+    }
 
 }
 

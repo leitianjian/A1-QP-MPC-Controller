@@ -10,16 +10,40 @@
 
 #include "A1Params.h"
 
-enum class GAIT_SEQUENCE{
+enum class GAIT_SEQUENCE{   
+    LF, 
+    RF,   
+    LH,
+    RH,
     STAND,
     MOVE_COM_TO_LEFT,
-    RH,
-    RF,
-    LH,
-    LF,
     MOVE_COM_TO_RIGHT
 };
 
+class FrontPoint {
+public:
+        Eigen::Vector3d pos;
+        double quality;
+        FrontPoint() {}
+        FrontPoint(Eigen::Vector3d &p_pos, double p_quality) {
+                pos << p_pos(0), p_pos(1), p_pos(2);
+                quality = p_quality;
+        }
+        FrontPoint(double x, double y, double z, double p_quality) {
+                pos << x, y, z;
+                quality = p_quality;
+        }
+
+        void setPos(Eigen::Vector3d &p_pos) {
+                pos = p_pos;
+        }
+        void setPos(double x, double y, double z) {
+                pos << x, y, z;
+        }
+        void setQuality(double q) {
+                quality = q;
+        }
+};
 
 class A1CtrlStates {
 public:
@@ -33,12 +57,16 @@ public:
         /* Static gait varibles initialization */
         gait_sequence = GAIT_SEQUENCE::STAND;
         counter_static_gait = 0;
-        counter_static_gait_speed = 0.8;
-        counter_per_static_move_com = 480.0;
+        counter_static_gait_speed = 0.7;
+        counter_per_static_move_com = 350.0;
         counter_per_static_swing = 200.0;
         counter_per_static_gait = counter_per_static_move_com * 2 + counter_per_static_swing * 4;
-        
-        
+        default_footholds_times = 0;
+
+        rh_lock_flag = 0;
+        rf_lock_flag = 0;
+        lh_lock_flag = 0;
+        lf_lock_flag = 0;
 
         
         /* --- */
@@ -486,8 +514,18 @@ public:
     // footholds pos w.r.t the robot frame
     Eigen::Matrix<double, 3, NUM_LEG> footholds_rel;
     int num_of_target;
+    Eigen::Matrix<double, 3, NUM_LEG> default_footholds_abs;
+    Eigen::Matrix<double, 3, NUM_LEG> default_footholds_world;
     
-    
+    std::list<FrontPoint> record;
+
+//     std::vector<double> x_record;
+//     std::vector<double> y_record;
+//     std::vector<double> z_record;
+    int default_footholds_times;
+    int rh_lock_flag, rf_lock_flag;
+    int lh_lock_flag, lf_lock_flag;
+
 
 };
 

@@ -4,9 +4,9 @@ weight:  "weights/yolov5s.pt"
 # 输入图像的尺寸
 input_size: 640
 # 类别个数
-class_num:  80
+class_num:  1
 # 标签名称
-class_name: [ 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
+class_name: [ 'pile', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
          'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
          'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
          'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
@@ -17,8 +17,8 @@ class_name: [ 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'trai
          'hair drier', 'toothbrush' ]
 # 阈值设置
 threshold:
-  iou: 0.45
-  confidence: 0.6
+  iou: 0.3
+  confidence: 0.5
 # 计算设备
 # - cpu
 # - 0 <- 使用GPU

@@ -84,6 +84,61 @@ void A1BasicEKF::update_estimation(A1CtrlStates& state, double dt) {
 //        estimated_contacts[i] = 1.0/(1.0+std::exp(-(state.foot_force(i)-100)));
         }
     }
+
+    // switch (state.gait_sequence)
+    // {
+    // case GAIT_SEQUENCE::MOVE_COM_TO_LEFT:
+    // estimated_contacts[0] = 1.0;
+    // estimated_contacts[1] = 1.0;
+    // estimated_contacts[2] = 1.0;
+    // estimated_contacts[3] = 1.0;
+    //     break;
+    // case GAIT_SEQUENCE::RH:
+
+    // estimated_contacts[0] = 1.0;
+    // estimated_contacts[1] = 1.0;
+    // estimated_contacts[2] = 1.0;
+    // estimated_contacts[3] = 0.0;
+    
+    //     break;
+    // case GAIT_SEQUENCE::RF:
+    // estimated_contacts[0] = 1.0;
+    // estimated_contacts[1] = 0.0;
+    // estimated_contacts[2] = 1.0;
+    // estimated_contacts[3] = 1.0;
+
+    //     break;
+    // case GAIT_SEQUENCE::MOVE_COM_TO_RIGHT:
+    // estimated_contacts[0] = 1.0;
+    // estimated_contacts[1] = 1.0;
+    // estimated_contacts[2] = 1.0;
+    // estimated_contacts[3] = 1.0;
+
+    //     break;
+    // case GAIT_SEQUENCE::LH:
+    // estimated_contacts[0] = 1.0;
+    // estimated_contacts[1] = 1.0;
+    // estimated_contacts[2] = 0.0;
+    // estimated_contacts[3] = 1.0;
+
+    //     break;
+    // case GAIT_SEQUENCE::LF:
+    // estimated_contacts[0] = 0.0;
+    // estimated_contacts[1] = 1.0;
+    // estimated_contacts[2] = 1.0;
+    // estimated_contacts[3] = 1.0;
+
+    //     break;    
+    // default:
+    //     break;
+    // }
+
+    // std::cout << "mode = " << state.movement_mode << ":";
+    // for (int i = 0; i < NUM_LEG; ++i) {
+    //         std::cout << "leg " << i << " = "<< estimated_contacts[i];
+    //     }
+    // std::cout << std::endl;
+
     // update Q
     Q.block<3, 3>(0, 0) = PROCESS_NOISE_PIMU * dt / 20.0 * eye3;
     Q.block<3, 3>(3, 3) = PROCESS_NOISE_VIMU * dt * 9.8 / 20.0 * eye3;

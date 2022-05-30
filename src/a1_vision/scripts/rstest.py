@@ -32,7 +32,7 @@ print(rs.config())
 pipeline = rs.pipeline()  # 定义流程pipeline
 config = rs.config()  # 定义配置config
 config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
-config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
+config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
 profile = pipeline.start(config)  # 流程开始
 align_to = rs.stream.color  # 与color流对齐
 align = rs.align(align_to)
@@ -71,7 +71,8 @@ def generate_matrix(theta):
     theta = theta/180*np.pi
     R_1 = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]])
     R = np.array([[np.cos(theta), 0, np.sin(theta)], [0, 1, 0], [-np.sin(theta), 0, np.cos(theta)]])@ R_1
-    p = (np.array([0.29,0,0.055])+np.array([0.0325*np.cos(theta),-0.0075,-0.0325*np.sin(theta)])).T
+    # p = (np.array([0.29,0,0.055])+np.array([0.0325*np.cos(theta),-0.0075,-0.0325*np.sin(theta)])).T
+    p = (np.array([0.295,0,0.055+0.176])+np.array([0.0420*np.cos(theta),0.034,-0.0420*np.sin(theta)])).T  
     # print('R',R)
     # print('p:',p)
     return R,p
@@ -170,6 +171,8 @@ class YoloV5:
         xyxy_list = []
         conf_list = []
         class_id_list = []
+        c1_list = []
+        c2_list = []
         if det is not None and len(det):
             # 画面中存在目标对象
             # 将坐标信息恢复到原始图像的尺寸
@@ -184,9 +187,13 @@ class YoloV5:
                     # 绘制矩形框与标签
                     label = '%s %.2f' % (
                         self.yolov5['class_name'][class_id], conf)
-                    # self.plot_one_box(
-                    #     xyxy, canvas, label=label, color=self.colors[class_id], line_thickness=3)
-        return canvas, class_id_list, xyxy_list, conf_list
+                    self.plot_one_box(
+                         xyxy, canvas, label=label, color=self.colors[class_id], line_thickness=3)
+                    c1,c2 = self.getc1c2(
+                         xyxy, canvas, label=label, color=self.colors[class_id], line_thickness=3)
+                    c1_list.append(c1)
+                    c2_list.append(c2)
+        return canvas, class_id_list, xyxy_list, conf_list,c1_list,c2_list
 
     def plot_one_box(self, x, img, color=None, label=None, line_thickness=None):
         ''''绘制矩形框+标签'''
@@ -204,6 +211,13 @@ class YoloV5:
             cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3,
                         [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
     
+    def getc1c2(self, x, img, color=None, label=None, line_thickness=None):
+        ''''绘制矩形框+标签'''
+        tl = line_thickness or round(
+            0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
+        color = color or [random.randint(0, 255) for _ in range(3)]
+        c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
+        return c1, c2
         
 
 if __name__ == '__main__':
@@ -243,7 +257,7 @@ if __name__ == '__main__':
 
             t_start = time.time()  # 开始计时
             # YoloV5 目标检测
-            canvas, class_id_list, xyxy_list, conf_list = model.detect(
+            canvas, class_id_list, xyxy_list, conf_list,c1_list,c2_list = model.detect(
                 color_image)
 
             t_end = time.time()  # 结束计时\
@@ -251,6 +265,7 @@ if __name__ == '__main__':
             #print(class_id_list)
 
             camera_xyz_list= []
+            # print("shape", len(xyxy_list), c1_list, c2_list)
             if xyxy_list:
                 for i in range(len(xyxy_list)):
                     ux = int((xyxy_list[i][0]+xyxy_list[i][2])/2)  # 计算像素坐标系的x
@@ -261,19 +276,54 @@ if __name__ == '__main__':
                     #camera_xyz = np.matmul(r, camera_xyz)
                     camera_pos = rs.rs2_deproject_pixel_to_point(
                         depth_intrin, (ux, uy), dis)  # 计算相机坐标系的xyz
-                    camera_pos = np.round(np.array(camera_pos), 3)  # 转成3位小数
-                    print('camera:',camera_pos)
-                    R,p = generate_matrix(90)
+                    camera_pos = np.round(np.array(camera_pos), 5)  # 转成5位小数
+                    R,p = generate_matrix(90)   # camera rotation angle
                     # print('-----',np.matmul(R,camera_pos))
                     camera_xyz = R @ camera_pos + p
-                    camera_xyz = np.round(np.array(camera_xyz), 3)  # 转成3位小数
+                    camera_xyz = np.round(np.array(camera_xyz), 5)  # 转成5位小数
                     camera_xyz = camera_xyz.tolist()
-                    print('COM:',camera_xyz)
-                    # cv2.circle(canvas, (ux,uy), 4, (255, 255, 255), 5)#标出中心点
-                    # cv2.putText(canvas, str(camera_pos), (ux+20, uy+10), 0, 1,
-                    #             [225, 255, 255], thickness=2, lineType=cv2.LINE_AA)#标出坐标
-                    camera_xyz_list.append(camera_xyz)
+
+                    cv2.circle(canvas, (ux,uy), 4, (255, 255, 255), 5)#标出中心点
+
+                    
+                    # print(c1_list[i])
+                    # computer rectangular in real
+                    c1x = int(c1_list[i][0])  # 计算像素坐标系的x
+                    c1y = int(c1_list[i][1])  # 计算像素坐标系的y
+                    c1_pos = rs.rs2_deproject_pixel_to_point(
+                        depth_intrin, (c1x, c1y), dis)  # 计算相机坐标系的xyz
+                    c1_pos = np.round(np.array(c1_pos), 5)  # 转成5位小数
+                    #print('camera:',camera_pos)
+                    #R, p = generate_matrix(90)
+                    # print('-----',np.matmul(R,camera_pos))
+                    c1_xyz = R @ c1_pos + p
+                    c1_xyz = np.round(np.array(c1_xyz), 5)  # 转成5位小数
+                    c1_xyz = c1_xyz.tolist()
+
+                    # computer rectangular in real
+                    c2x = int(c2_list[i][0])  # 计算像素坐标系的x
+                    c2y = int(c2_list[i][1])  # 计算像素坐标系的y
+                    c2_pos = rs.rs2_deproject_pixel_to_point(
+                        depth_intrin, (c2x, c2y), dis)  # 计算相机坐标系的xyz
+                    c2_pos = np.round(np.array(c2_pos), 5)  # 转成5位小数
+                    #print('camera:',camera_pos)
+                    #R, p = generate_matrix(90)
+                    # print('-----',np.matmul(R,camera_pos))
+                    c2_xyz = R @ c2_pos + p
+                    c2_xyz = np.round(np.array(c2_xyz), 5)  # 转成5位小数
+                    c2_xyz = c2_xyz.tolist()
+                    # print(c1_xyz, c2_xyz)
+                    detected_diameter_size = np.linalg.norm(np.array(c1_xyz) - np.array(c2_xyz))/ (2 ** 0.5)
+                    cv2.putText(canvas, str(round(detected_diameter_size, 5)), (ux+20, uy+10), 0, 1,
+                                [225, 255, 255], thickness=2, lineType=cv2.LINE_AA)#标出坐标
+                    if (detected_diameter_size > 0.145):
+                        print('Complete target!---------add')
+                        print(str(detected_diameter_size), str(camera_xyz))
+                        camera_xyz.append(detected_diameter_size)
+                        camera_xyz_list.append(camera_xyz)
+
             camera_flatten_list = list(chain.from_iterable(camera_xyz_list))
+            
 
             # print(camera_flatten_list)
             meihuazhuangpos = Float64MultiArray(data = camera_flatten_list)
@@ -283,12 +333,10 @@ if __name__ == '__main__':
             # 添加fps显示
             fps = int(1.0 / (t_end - t_start))
             # print(fps)
-            #cv2.putText(canvas, text="FPS: {}".format(fps), org=(50, 50),
-            #             fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, thickness=2,
-            #             lineType=cv2.LINE_AA, color=(0, 0, 0))
-            #cv2.namedWindow('detection', flags=cv2.WINDOW_NORMAL |
+            #cv2.putText(c                lineType=cv2.LINE_AA, color=(0, 0, 0))
+            # cv2.namedWindow('detection', flags=cv2.WINDOW_NORMAL |
             #                cv2.WINDOW_KEEPRATIO | cv2.WINDOW_GUI_EXPANDED)
-            #cv2.imshow('detection', canvas)
+            cv2.imshow('detection', canvas)
             key = cv2.waitKey(1)
             # # Press esc or 'q' to close the image window
             if key & 0xFF == ord('q') or key == 27:
